@@ -212,11 +212,9 @@ public class UserActivity extends AppCompatActivity{
         apList = new ArrayList<>();
         getMacList();
 
-        startTTS();
         //autoConnectOPEN("UTFPRWEB");
         //autoConnectWAP("FUNBOX-BOARDGAME-CAFE","Fb-4130400780");
-        //getMacList();
-        setAps();
+        startTTS();
     }
 
     @Override
@@ -269,33 +267,6 @@ public class UserActivity extends AppCompatActivity{
         });
     }
 
-    // To be Eliminated
-    private void setAps() {
-        //MAC1 = "FF:FF:FF:FF:FF:01";
-        MAC1 = "6a:39:a3:67:51:8e";
-        RSS1 = 3;
-
-        //MAC2 = "FF:FF:FF:FF:FF:02";
-        MAC2 = "df:11:bb:8f:a8:7a";
-        RSS2 = 6;
-
-        //MAC3 = "FF:FF:FF:FF:FF:03";
-        MAC3 = "19:b3:82:86:06:6e";
-        RSS3 = 8;
-    }
-
-    /**
-     * Function to update the information displayed in the user interface
-     */
-    public void updateUI() {
-        if (!tvLocation.getText().toString().equals(location)) {
-            tvLocation.setText(location);
-            if (swtTTS.isChecked()) {
-                ttsCall(location);
-            }
-        }
-    }
-
     /**
      * Function to call the TTS speak method
      *
@@ -314,64 +285,14 @@ public class UserActivity extends AppCompatActivity{
     }
 
     /**
-     * Função para atualizar as variaveis globais referentes aos Aps
-     *
-     * @param results a list of ScanResult
-     * @param list    an ArrayList with the MAC Address or SSID
-     * @param opc     a Integer witch determinate if the ArrayList contains MAC or SSID
+     * Function to update the information displayed in the user interface
      */
-    public void updateAP(List<ScanResult> results, ArrayList list, int opc) {
-        RSS1 = RSS2 = RSS3 = 0;
-
-        switch (opc) {
-
-            case 0: {
-                for (ScanResult result : results) {
-                    if (result.BSSID.equals(list.get(0))) {
-                        MAC1 = result.BSSID;
-                        RSS1 = result.level;
-                    } else if (result.BSSID.equals(list.get(1))) {
-                        MAC2 = result.BSSID;
-                        RSS2 = result.level;
-                    } else if (result.BSSID.equals(list.get(2))) {
-                        MAC3 = result.BSSID;
-                        RSS3 = result.level;
-                    }
-                }
+    public void updateUI() {
+        if (!tvLocation.getText().toString().equals(location)) {
+            tvLocation.setText(location);
+            if (swtTTS.isChecked()) {
+                ttsCall(location);
             }
-            break;
-            case 1: {
-                for (ScanResult result : results) {
-                    if (result.SSID.equals(list.get(0))) {
-                        MAC1 = result.BSSID;
-                        RSS1 = result.level;
-                    } else if (result.SSID.equals(list.get(1))) {
-                        MAC2 = result.BSSID;
-                        RSS2 = result.level;
-                    } else if (result.SSID.equals(list.get(2))) {
-                        MAC3 = result.BSSID;
-                        RSS3 = result.level;
-                    }
-                }
-            }
-            break;
-            case 2: {
-                int i = 0;
-                for (ScanResult result : results) {
-                    if (i == 0) {
-                        MAC1 = result.BSSID;
-                        RSS1 = result.level;
-                    } else if (i == 1) {
-                        MAC2 = result.BSSID;
-                        RSS2 = result.level;
-                    } else if (i == 2) {
-                        MAC3 = result.BSSID;
-                        RSS3 = result.level;
-                    }
-                    i++;
-                }
-            }
-            break;
         }
     }
 
@@ -400,18 +321,12 @@ public class UserActivity extends AppCompatActivity{
      */
     private RequestParams getParams(){
         RequestParams params = new RequestParams();
-        RequestParams params2 = new RequestParams();
-        params.put(MAC1, Integer.toString(RSS1));
-        params.put(MAC2, Integer.toString(RSS2));
-        params.put(MAC3, Integer.toString(RSS3));
-
         for (Ap ap : apList){
-            params2.put(ap.getMac(),Integer.toString(ap.getRssi()));
+            params.put(ap.getMac(),Integer.toString(ap.getRssi()));
         }
 
-        Log.i("ParamGET 1",params.toString());
-        Log.i("ParamGet 2",params2.toString());
-        return params2;
+        //Log.i("ParamGET",params.toString());
+        return params;
     }
 
     /**
@@ -423,7 +338,7 @@ public class UserActivity extends AppCompatActivity{
             Ap ap = new Ap(mac);
             apList.add(ap);
         }
-        Log.i("APList",apList.toString());
+        //Log.i("APList",apList.toString());
     }
 
     /**
@@ -490,10 +405,8 @@ public class UserActivity extends AppCompatActivity{
     private void refresh() {
         wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (!wifiMgr.isWifiEnabled()) wifiMgr.setWifiEnabled(true);
-        wifiMgr.startScan();
+            wifiMgr.startScan();
         List<ScanResult> results= wifiMgr.getScanResults();
-        ArrayList macs = setListMAC();
-        updateAP(results,macs,0);
         updateAP(results,apList);
         getLocation(getParams());
         updateUI();
