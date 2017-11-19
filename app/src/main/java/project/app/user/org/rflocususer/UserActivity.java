@@ -144,10 +144,10 @@ public class UserActivity extends AppCompatActivity{
         */
 
         // -----------MACS RFLocus---------- //
-        listMacs.add("64:ae:0c:65:7a:71");
-        listMacs.add("64:ae:0c:be:71:03");
-        listMacs.add("64:ae:0c:91:76:31");
-        //listMacs.add("2c:55:d3:b0:1c:c4");
+        listMacs.add("6a:39:a3:67:51:8e");
+        listMacs.add("df:11:bb:8f:a8:7a");
+        listMacs.add("19:b3:82:86:06:6e");
+        //listMacs.add("c7:45:50:51:06:d1");
         // ---------------------------------- //
 
         return listMacs;
@@ -210,6 +210,7 @@ public class UserActivity extends AppCompatActivity{
         swtTTS.setChecked(true);
 
         apList = new ArrayList<>();
+        getMacList();
 
         startTTS();
         //autoConnectOPEN("UTFPRWEB");
@@ -399,30 +400,30 @@ public class UserActivity extends AppCompatActivity{
      */
     private RequestParams getParams(){
         RequestParams params = new RequestParams();
-
+        RequestParams params2 = new RequestParams();
         params.put(MAC1, Integer.toString(RSS1));
         params.put(MAC2, Integer.toString(RSS2));
         params.put(MAC3, Integer.toString(RSS3));
 
-        /*
         for (Ap ap : apList){
-            params.put(ap.getMac(),Integer.toString(ap.getRssi()));
+            params2.put(ap.getMac(),Integer.toString(ap.getRssi()));
         }
-        */
 
-        //Log.d("ParamGET",params.toString());
-        return params;
+        Log.i("ParamGET 1",params.toString());
+        Log.i("ParamGet 2",params2.toString());
+        return params2;
     }
 
     /**
      * Function to request the MAC address of the APs
      */
     private void getMacList(){
-        ArrayList<String> listMacs = (setListMAC());
+        ArrayList<String> listMacs = setListMAC();
         for (String mac : listMacs) {
             Ap ap = new Ap(mac);
             apList.add(ap);
         }
+        Log.i("APList",apList.toString());
     }
 
     /**
@@ -493,7 +494,7 @@ public class UserActivity extends AppCompatActivity{
         List<ScanResult> results= wifiMgr.getScanResults();
         ArrayList macs = setListMAC();
         updateAP(results,macs,0);
-        //updateAP(results,apList);
+        updateAP(results,apList);
         getLocation(getParams());
         updateUI();
         //Log.d("AutoRefresh","Scan Completed");
