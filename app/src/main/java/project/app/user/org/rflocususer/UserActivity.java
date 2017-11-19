@@ -51,7 +51,8 @@ public class UserActivity extends AppCompatActivity{
     WifiManager wifiMgr;
     private boolean wifiInitStt;
 
-    private String SSID1, SSID2, SSID3;
+    private List<Ap> apList;
+
     private String MAC1, MAC2, MAC3;
     private Integer RSS1, RSS2, RSS3;
 
@@ -59,14 +60,10 @@ public class UserActivity extends AppCompatActivity{
 
     private TextView tvLocation;
     private Switch swtTTS;
-    private Button button2;
 
     private TextToSpeech tts;
 
     int MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION;
-
-    //RequestQueue requestQueue = Volley.newRequestQueue(this);
-    //ArrayList<String> listMAC = new ArrayList<>();
 
     /**
      * Function to automatically connect to a OPEN Wi-Fi network
@@ -205,18 +202,19 @@ public class UserActivity extends AppCompatActivity{
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP)
             permissionRequest();
 
-
         wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         wifiInitStt = wifiMgr.isWifiEnabled();
 
         tvLocation = (TextView) findViewById(R.id.tvLocation);
         swtTTS = (Switch) findViewById(R.id.swtTTS);
-        //if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-            swtTTS.setChecked(true);
+        swtTTS.setChecked(true);
+
+        apList = new ArrayList<>();
 
         startTTS();
-        //autoConnect("UTFPRWEB");
-        //autoConnect("FUNBOX-BOARDGAME-CAFE","Fb-4130400780");
+        //autoConnectOPEN("UTFPRWEB");
+        //autoConnectWAP("FUNBOX-BOARDGAME-CAFE","Fb-4130400780");
+        //getMacList();
         setAps();
     }
 
@@ -248,7 +246,7 @@ public class UserActivity extends AppCompatActivity{
     }
 
     /**
-     * Função que prepara o recurso TTS para ser executado
+     * Function that prepares the TTS resource to run
      */
     private void startTTS(){
         tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
@@ -270,25 +268,23 @@ public class UserActivity extends AppCompatActivity{
         });
     }
 
+    // To be Eliminated
     private void setAps() {
-        SSID1 = "RFLocus 01";
         //MAC1 = "FF:FF:FF:FF:FF:01";
         MAC1 = "6a:39:a3:67:51:8e";
         RSS1 = 3;
 
-        SSID2 = "RFLocus 02";
         //MAC2 = "FF:FF:FF:FF:FF:02";
         MAC2 = "df:11:bb:8f:a8:7a";
         RSS2 = 6;
 
-        SSID3 = "RFLocus 03";
         //MAC3 = "FF:FF:FF:FF:FF:03";
         MAC3 = "19:b3:82:86:06:6e";
         RSS3 = 8;
     }
 
     /**
-     * Função para atualizar as informações exibidas na interface do usuário
+     * Function to update the information displayed in the user interface
      */
     public void updateUI() {
         if (!tvLocation.getText().toString().equals(location)) {
@@ -300,8 +296,9 @@ public class UserActivity extends AppCompatActivity{
     }
 
     /**
-     * Função para chamar o método speak do TTS
-     * @param text String a ser falada
+     * Function to call the TTS speak method
+     *
+     * @param text String to be speak
      */
     private void ttsCall(String text) {
         if(!(text==null||"".equals(text))){
@@ -330,15 +327,12 @@ public class UserActivity extends AppCompatActivity{
             case 0: {
                 for (ScanResult result : results) {
                     if (result.BSSID.equals(list.get(0))) {
-                        SSID1 = result.SSID;
                         MAC1 = result.BSSID;
                         RSS1 = result.level;
                     } else if (result.BSSID.equals(list.get(1))) {
-                        SSID2 = result.SSID;
                         MAC2 = result.BSSID;
                         RSS2 = result.level;
                     } else if (result.BSSID.equals(list.get(2))) {
-                        SSID3 = result.SSID;
                         MAC3 = result.BSSID;
                         RSS3 = result.level;
                     }
@@ -348,15 +342,12 @@ public class UserActivity extends AppCompatActivity{
             case 1: {
                 for (ScanResult result : results) {
                     if (result.SSID.equals(list.get(0))) {
-                        SSID1 = result.SSID;
                         MAC1 = result.BSSID;
                         RSS1 = result.level;
                     } else if (result.SSID.equals(list.get(1))) {
-                        SSID2 = result.SSID;
                         MAC2 = result.BSSID;
                         RSS2 = result.level;
                     } else if (result.SSID.equals(list.get(2))) {
-                        SSID3 = result.SSID;
                         MAC3 = result.BSSID;
                         RSS3 = result.level;
                     }
@@ -367,15 +358,12 @@ public class UserActivity extends AppCompatActivity{
                 int i = 0;
                 for (ScanResult result : results) {
                     if (i == 0) {
-                        SSID1 = result.SSID;
                         MAC1 = result.BSSID;
                         RSS1 = result.level;
                     } else if (i == 1) {
-                        SSID2 = result.SSID;
                         MAC2 = result.BSSID;
                         RSS2 = result.level;
                     } else if (i == 2) {
-                        SSID3 = result.SSID;
                         MAC3 = result.BSSID;
                         RSS3 = result.level;
                     }
@@ -387,9 +375,27 @@ public class UserActivity extends AppCompatActivity{
     }
 
     /**
-     * Função para gerar os parametros do método GET do Servidor RESTFul
+     * Function to update AP information
      *
-     * @return RequestParams no formato type:type,MAC1:rssi1,MAC2:rssi2,MAC3:rssi3
+     * @param results a list of ScanResult
+     * @param apList  List with the MAC's Address
+     */
+    private void updateAP(List<ScanResult> results, List<Ap> apList){
+        for (ScanResult result : results) {
+            for (Ap ap : apList) {
+                ap.setRssi(0);
+                if (ap.getMac().equals(result.BSSID)){
+                    ap.setSsid(result.SSID);
+                    ap.setRssi(result.level);
+                }
+            }
+        }
+    }
+
+    /**
+     * Function to generate the parameters of the GET method of the RESTFul Server
+     *
+     * @return RequestParams in the format type:type,MAC1:rssi1,MAC2:rssi2,MAC3:rssi3
      */
     private RequestParams getParams(){
         RequestParams params = new RequestParams();
@@ -398,14 +404,31 @@ public class UserActivity extends AppCompatActivity{
         params.put(MAC2, Integer.toString(RSS2));
         params.put(MAC3, Integer.toString(RSS3));
 
+        /*
+        for (Ap ap : apList){
+            params.put(ap.getMac(),Integer.toString(ap.getRssi()));
+        }
+        */
+
         //Log.d("ParamGET",params.toString());
         return params;
     }
 
     /**
-     * Função para realizar o metodo GET no Servidor RESTFul
+     * Function to request the MAC address of the APs
+     */
+    private void getMacList(){
+        ArrayList<String> listMacs = (setListMAC());
+        for (String mac : listMacs) {
+            Ap ap = new Ap(mac);
+            apList.add(ap);
+        }
+    }
+
+    /**
+     * Function to create a HTTP GET request to a server URL
      *
-     * @param params RequestParams com os parametros do GET
+     * @param params RequestParams with GET parameters
      */
     private void getLocation(RequestParams params) {
         List<Header> headers = new ArrayList<>();
@@ -431,7 +454,7 @@ public class UserActivity extends AppCompatActivity{
     }
 
     /**
-     * Função para parar a thread periódica
+     * Function to stop the periodic thread
      */
     private void stopRefresh() {
         if(periodicScan != null)
@@ -440,7 +463,7 @@ public class UserActivity extends AppCompatActivity{
     }
 
     /**
-     * Função para iniciar a thread preriódica
+     * Function to start the periodic thread
      */
     private void startRefresh() {
         if(periodicScan == null) {
@@ -461,33 +484,35 @@ public class UserActivity extends AppCompatActivity{
     };
 
     /**
-     * Função que realiza o scan das redes WiFi. Ela se certifica de manter o WiFi ativo
+     * Function that scans the Wi-Fi networks. It makes sure to keep Wi-Fi active.
      */
     private void refresh() {
-        ArrayList macs = setListMAC();
         wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (!wifiMgr.isWifiEnabled()) wifiMgr.setWifiEnabled(true);
         wifiMgr.startScan();
         List<ScanResult> results= wifiMgr.getScanResults();
+        ArrayList macs = setListMAC();
         updateAP(results,macs,0);
+        //updateAP(results,apList);
         getLocation(getParams());
         updateUI();
         //Log.d("AutoRefresh","Scan Completed");
     }
 
     /**
-     * Classe que implementa a execução da função Wifiscanner de forma periódica e em segundo plano
+     * Class that implements AsyncTask
      */
     private class PeriodicScan extends AsyncTask<Void, Void, Void> {
 
         boolean keepRunning = true;
+        int time = 1000;
 
         @Override
         protected Void doInBackground(Void... params) {
             while(keepRunning) {
                 runOnUiThread(doRefresh);
                 try {
-                    Thread.sleep(1000); // Refresh every second
+                    Thread.sleep(time); // Refresh every second
                 } catch (InterruptedException e) {
                     keepRunning = false;
                 }
