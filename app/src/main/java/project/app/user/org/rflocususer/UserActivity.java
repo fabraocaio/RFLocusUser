@@ -69,52 +69,74 @@ public class UserActivity extends AppCompatActivity{
     //ArrayList<String> listMAC = new ArrayList<>();
 
     /**
-     * Função para conectar automaticamente em uma rede Wi-Fi
+     * Function to automatically connect to a OPEN Wi-Fi network
      *
      * @param networkSSID String with the SSID of the desire network
      */
-    private void autoConnect(String networkSSID) {
+    private void autoConnectOPEN(String networkSSID) {
         WifiConfiguration conf = new WifiConfiguration();
         conf.SSID = "\"" + networkSSID + "\"";   // Please note the quotes. String should contain ssid in quotes
         //For OPEN password
         conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
         //Add setting to WifiManager
         wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        wifiMgr.addNetwork(conf);
+        int netID = wifiMgr.addNetwork(conf);
+        wifiMgr.disconnect();
+        wifiMgr.enableNetwork(netID, true);
+        wifiMgr.reconnect();
         Log.d("AutoConnect", "Open");
     }
 
     /**
-     * Função para conectar automaticamente em uma rede Wi-Fi
+     * Function to automatically connect to a WPA Wi-Fi network
      *
      * @param networkSSID String with the SSID of the desire network
      * @param networkPass String with the password of the desire network
      */
-    private void autoConnect(String networkSSID, String networkPass) {
+    private void autoConnectWPA(String networkSSID, String networkPass) {
         WifiConfiguration conf = new WifiConfiguration();
         conf.SSID = "\"" + networkSSID + "\"";   // Please note the quotes. String should contain ssid in quotes
+        //For WPA password
+        conf.preSharedKey = "\"" + networkPass + "\"";
+        //Add setting to WifiManager
+        wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        wifiMgr.addNetwork(conf);
+        int netID = wifiMgr.addNetwork(conf);
+        wifiMgr.disconnect();
+        wifiMgr.enableNetwork(netID, true);
+        wifiMgr.reconnect();
+        Log.d("AutoConnect", "WPA");
+    }
 
+    /**
+     * Function to automatically connect to a WEP Wi-Fi network
+     *
+     * @param networkSSID String with the SSID of the desire network
+     * @param networkPass String with the password of the desire network
+     */
+    private void autoConnectWEP(String networkSSID, String networkPass) {
+        WifiConfiguration conf = new WifiConfiguration();
+        conf.SSID = "\"" + networkSSID + "\"";   // Please note the quotes. String should contain ssid in quotes
         //for wep
         conf.wepKeys[0] = "\"" + networkPass + "\"";
         conf.wepTxKeyIndex = 0;
         conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
         conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
-
-        /*
-        //For WPA password
-        conf.preSharedKey = "\"" + networkPass + "\"";
         //Add setting to WifiManager
         wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        wifiMgr.addNetwork(conf);*/
-        Log.d("AutoConnect", "WPA");
+        wifiMgr.addNetwork(conf);
+        int netID = wifiMgr.addNetwork(conf);
+        wifiMgr.disconnect();
+        wifiMgr.enableNetwork(netID, true);
+        wifiMgr.reconnect();
     }
 
     /**
-     * Função que retorna uma lista de enredeços MACs para teste
+     * Function that returns a list of MACs for testing
      *
      * @return ArrayList with the default MAC address
      */
-    private ArrayList setListMAC() {
+    private ArrayList<String> setListMAC() {
         ArrayList<String> listMacs = new ArrayList<>();
         /*
         // -----------MACS UTFPRWEB---------- //
@@ -124,47 +146,18 @@ public class UserActivity extends AppCompatActivity{
         // ---------------------------------- //
         */
 
-        // -----MACS NODE-MCU Esp8622-------- //
-        // ---------------------------------- //
-
-        listMacs.add("c7:45:50:51:06:d1");
-        listMacs.add("19:b3:82:86:06:6e");
-        listMacs.add("df:11:bb:8f:a8:7a");
-        listMacs.add("6a:39:a3:67:51:8e");
-
-        // ---------------------------------- //
-
-        // -----MACS NODE-MCU Esp8622-------- //
-        /*
-        try {
-            listMacs.add(URLEncoder.encode("c7:45:50:51:06:d1","UTF-8"));
-            listMacs.add(URLEncoder.encode("19:b3:82:86:06:6e","UTF-8"));
-            listMacs.add(URLEncoder.encode("df:11:bb:8f:a8:7a","UTF-8"));
-            listMacs.add(URLEncoder.encode("6a:39:a3:67:51:8e","UTF-8"));
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-        */
+        // -----------MACS RFLocus---------- //
+        listMacs.add("64:ae:0c:65:7a:71");
+        listMacs.add("64:ae:0c:be:71:03");
+        listMacs.add("64:ae:0c:91:76:31");
+        //listMacs.add("2c:55:d3:b0:1c:c4");
         // ---------------------------------- //
 
         return listMacs;
     }
 
     /**
-     * Função que retorna uma lista de SSIDs para testes
-     *
-     * @return ArrayList with the default SSID
-     */
-    private ArrayList serListSSID() {
-        ArrayList<String> listSSID = new ArrayList<>();
-        listSSID.add("RFLocus 01");
-        listSSID.add("RFLocus 02");
-        listSSID.add("RFLocus 03");
-        return listSSID;
-    }
-
-    /**
-     * Função para requisitar ao usuário permição para acessar Fine location
+     * Function to request the user permission to access Fine location
      */
     private void permissionRequest(){
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -221,27 +214,8 @@ public class UserActivity extends AppCompatActivity{
         //if (android.os.Build.VERSION.SDK_INT == android.os.Build.VERSION_CODES.ICE_CREAM_SANDWICH)
             swtTTS.setChecked(true);
 
-        button2 = (Button) findViewById(R.id.button2);
-        /*
-        button2.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                getLocation(getParams());
-                //getRepoList("fabraocaio");
-                //getRepoList("a");
-
-                if (location.equals("Banheiro"))
-                    location = "Sala Q106";
-                else
-                    location = "Banheiro";
-
-            }
-        });
-        */
-
-        //startTTS();
+        startTTS();
         //autoConnect("UTFPRWEB");
-        //autoConnect("narsil","1119072205");
         //autoConnect("FUNBOX-BOARDGAME-CAFE","Fb-4130400780");
         setAps();
     }
@@ -271,7 +245,6 @@ public class UserActivity extends AppCompatActivity{
     public void onResume() {
         super.onResume();
         startTTS();
-        //startRefresh();
     }
 
     /**
@@ -425,11 +398,6 @@ public class UserActivity extends AppCompatActivity{
         params.put(MAC2, Integer.toString(RSS2));
         params.put(MAC3, Integer.toString(RSS3));
 
-        /*
-        params.put(MAC1, 3.0f);
-        params.put(MAC2, 6.4f);
-        params.put(MAC3, 8.5f);
-        */
         //Log.d("ParamGET",params.toString());
         return params;
     }
@@ -448,29 +416,10 @@ public class UserActivity extends AppCompatActivity{
                 new JsonHttpResponseHandler() {
                     @Override
                     public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
-                        ApJson respJson = new ApJson(response);
+                        LocusJson respJson = new LocusJson(response);
                         location = respJson.getArid();
                         updateUI();
                         Log.d("AsyncHttpRH","Success on GET: "+location);
-                    }
-
-                    @Override
-                    public void onSuccess(int statusCode, Header[] headers, JSONArray response) {
-                        ArrayList<ApJson> noteArray = new ArrayList<ApJson>();
-                        //NoteAdapter noteAdapter = new NoteAdapter(MainActivity.this, noteArray);
-
-                        /*
-                        for (int i = 0; i < response.length(); i++) {
-                            try {
-                                noteAdapter.add(new ApJson(response.getJSONObject(i)));
-                            } catch (JSONException e) {
-                                e.printStackTrace();
-                            }
-                        }
-
-                        noteList = (ListView) findViewById(R.id.list_notes);
-                        noteList.setAdapter(noteAdapter);
-                        */
                     }
 
                     @Override
@@ -478,8 +427,6 @@ public class UserActivity extends AppCompatActivity{
                         super.onFailure(statusCode, headers, throwable, errorResponse);
                         Log.d("AsyncHttpRH","Failure to send GET");
                     }
-
-
                 });
     }
 
@@ -518,16 +465,12 @@ public class UserActivity extends AppCompatActivity{
      */
     private void refresh() {
         ArrayList macs = setListMAC();
-        //ArrayList ssids = serListSSID();
         wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (!wifiMgr.isWifiEnabled()) wifiMgr.setWifiEnabled(true);
         wifiMgr.startScan();
         List<ScanResult> results= wifiMgr.getScanResults();
         updateAP(results,macs,0);
         getLocation(getParams());
-        //updateAP(results,ssids,1);
-
-        //getLocation();
         updateUI();
         //Log.d("AutoRefresh","Scan Completed");
     }
