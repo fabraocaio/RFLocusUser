@@ -2,14 +2,18 @@ package project.app.user.org.rflocususer;
 
 import android.Manifest;
 import android.annotation.TargetApi;
+import android.app.Application;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.nfc.Tag;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.os.Environment;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.NonNull;
 import android.support.annotation.RequiresApi;
@@ -35,6 +39,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -47,6 +53,9 @@ import cz.msebera.android.httpclient.message.BasicHeader;
 public class UserActivity extends AppCompatActivity{
 
     private static String TAG = "UserActivity";
+    private static String network = "RFLocus";
+    private static String password = "oficina3";
+
     private PeriodicScan periodicScan;
     WifiManager wifiMgr;
     private boolean wifiInitStt;
@@ -64,6 +73,83 @@ public class UserActivity extends AppCompatActivity{
     private TextToSpeech tts;
 
     int MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION;
+
+    /**
+     * Function to check if the device still connected to a network
+     * @param ssid  Network SSID to be checked
+     * @return boolean
+     */
+    private boolean isConnected(String ssid){
+        wifiMgr = (WifiManager) getApplicationContext().getSystemService (Context.WIFI_SERVICE);
+        WifiInfo wifiInfo = wifiMgr.getConnectionInfo();
+        return wifiInfo.getSSID().equals("\""+ssid+"\"");
+    }
+
+    /**
+     * Class that manager the log saving to the device's storage directory
+     */
+    public static class CreateLog extends Application {
+        private static String TAG = "CreateLog";
+
+        /**
+         * Function to save the logcat into files on the device's storage directory
+         */
+        private static void createLog() {
+            if (isExternalStorageWritable()) {
+
+                //DateFormat df = new SimpleDateFormat.getDateTimeInstance("ddmmyy","hhmm");
+                File appDirectory = new File(Environment.getExternalStorageDirectory() + "/rflocusUser");
+                File logDirectory = new File(appDirectory + "/log");
+                File logFile1 = new File(logDirectory, "logcat_default" + System.currentTimeMillis() + ".txt");
+                File logFile2 = new File(logDirectory, "logcat_debug" + System.currentTimeMillis() + ".txt");
+
+                if (!appDirectory.exists()) {
+                    appDirectory.mkdir();
+                    Log.d(TAG,"Creating app directory");
+                }
+
+                if (!logDirectory.exists()) {
+                    logDirectory.mkdir();
+                    Log.d(TAG,"Creating log directory");
+                }
+
+                try {
+                    Process process = Runtime.getRuntime().exec("logcat -c");
+                    process = Runtime.getRuntime().exec("logcat -f " + logFile1 + " *:I");
+                    process = Runtime.getRuntime().exec("logcat -f " + logFile2 + " *:D");
+                    Log.d(TAG,"Log Saved");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            } else if (isExternalStorageReadable()) {
+                Log.e(TAG, "External Storage only readable");
+            } else {
+                Log.e(TAG, "External Storage only accessible");
+            }
+        }
+
+        /***
+         * Checks if external storage is available for read and write
+         *
+         * @return boolean
+         */
+        public static boolean isExternalStorageWritable() {
+            String state = Environment.getExternalStorageState();
+            return Environment.MEDIA_MOUNTED.equals(state);
+        }
+
+        /***
+         * Checks if external storage is available to at least read
+         *
+         * @return boolean
+         */
+        public static boolean isExternalStorageReadable() {
+            String state = Environment.getExternalStorageState();
+            return Environment.MEDIA_MOUNTED.equals(state) ||
+                    Environment.MEDIA_MOUNTED_READ_ONLY.equals(state);
+        }
+    }
 
     /**
      * Function to automatically connect to a OPEN Wi-Fi network
@@ -144,10 +230,11 @@ public class UserActivity extends AppCompatActivity{
         */
 
         // -----------MACS RFLocus---------- //
-        listMacs.add("64:ae:0c:65:7a:71");
-        listMacs.add("64:ae:0c:be:71:03");
-        listMacs.add("64:ae:0c:91:76:31");
-        //listMacs.add("2c:55:d3:b0:1c:c4");
+        listMacs.add("a2:20:a6:14:ea:ec");
+        listMacs.add("a2:20:a6:17:37:d8");
+        listMacs.add("a2:20:a6:19:10:45");
+        //listMacs.add("a2:20:a6:19:0E:30");
+        //listMacs.add("b8:27:eb:a3:7d:75");
         // ---------------------------------- //
 
         return listMacs;
@@ -167,6 +254,11 @@ public class UserActivity extends AppCompatActivity{
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                         MY_PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION);
             }
+        }
+
+        if(ContextCompat.checkSelfPermission(this,Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
         }
     }
 
@@ -193,6 +285,8 @@ public class UserActivity extends AppCompatActivity{
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user);
+        Log.d(TAG,"onCreate");
+        CreateLog.createLog();
 
         // Force portrait orientation to this activity
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
@@ -209,13 +303,10 @@ public class UserActivity extends AppCompatActivity{
         swtTTS = (Switch) findViewById(R.id.swtTTS);
         swtTTS.setChecked(true);
 
+        autoConnectWPA(network,password);
         apList = new ArrayList<>();
-
+        getMacList();
         startTTS();
-        //autoConnectOPEN("UTFPRWEB");
-        //autoConnectWAP("FUNBOX-BOARDGAME-CAFE","Fb-4130400780");
-        //getMacList();
-        setAps();
     }
 
     @Override
@@ -258,41 +349,15 @@ public class UserActivity extends AppCompatActivity{
                 if (status == TextToSpeech.SUCCESS) {
                     int result = tts.setLanguage(Locale.getDefault());
                     if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                        Log.d("error", "This Language is not supported");
+                        Log.d("TTSError", "This Language is not supported");
                     } else {
                         startRefresh();
+                        Log.d("TTS","Incializado com sucesso");
                     }
                 } else
-                    Log.d("error", "Initialization Failed!");
+                    Log.d("TTSError", "Initialization Failed!");
             }
         });
-    }
-
-    // To be Eliminated
-    private void setAps() {
-        //MAC1 = "FF:FF:FF:FF:FF:01";
-        MAC1 = "6a:39:a3:67:51:8e";
-        RSS1 = 3;
-
-        //MAC2 = "FF:FF:FF:FF:FF:02";
-        MAC2 = "df:11:bb:8f:a8:7a";
-        RSS2 = 6;
-
-        //MAC3 = "FF:FF:FF:FF:FF:03";
-        MAC3 = "19:b3:82:86:06:6e";
-        RSS3 = 8;
-    }
-
-    /**
-     * Function to update the information displayed in the user interface
-     */
-    public void updateUI() {
-        if (!tvLocation.getText().toString().equals(location)) {
-            tvLocation.setText(location);
-            if (swtTTS.isChecked()) {
-                ttsCall(location);
-            }
-        }
     }
 
     /**
@@ -313,64 +378,14 @@ public class UserActivity extends AppCompatActivity{
     }
 
     /**
-     * Função para atualizar as variaveis globais referentes aos Aps
-     *
-     * @param results a list of ScanResult
-     * @param list    an ArrayList with the MAC Address or SSID
-     * @param opc     a Integer witch determinate if the ArrayList contains MAC or SSID
+     * Function to update the information displayed in the user interface
      */
-    public void updateAP(List<ScanResult> results, ArrayList list, int opc) {
-        RSS1 = RSS2 = RSS3 = 0;
-
-        switch (opc) {
-
-            case 0: {
-                for (ScanResult result : results) {
-                    if (result.BSSID.equals(list.get(0))) {
-                        MAC1 = result.BSSID;
-                        RSS1 = result.level;
-                    } else if (result.BSSID.equals(list.get(1))) {
-                        MAC2 = result.BSSID;
-                        RSS2 = result.level;
-                    } else if (result.BSSID.equals(list.get(2))) {
-                        MAC3 = result.BSSID;
-                        RSS3 = result.level;
-                    }
-                }
+    public void updateUI() {
+        if (!tvLocation.getText().toString().equals(location)) {
+            tvLocation.setText(location);
+            if (swtTTS.isChecked()) {
+                ttsCall(location);
             }
-            break;
-            case 1: {
-                for (ScanResult result : results) {
-                    if (result.SSID.equals(list.get(0))) {
-                        MAC1 = result.BSSID;
-                        RSS1 = result.level;
-                    } else if (result.SSID.equals(list.get(1))) {
-                        MAC2 = result.BSSID;
-                        RSS2 = result.level;
-                    } else if (result.SSID.equals(list.get(2))) {
-                        MAC3 = result.BSSID;
-                        RSS3 = result.level;
-                    }
-                }
-            }
-            break;
-            case 2: {
-                int i = 0;
-                for (ScanResult result : results) {
-                    if (i == 0) {
-                        MAC1 = result.BSSID;
-                        RSS1 = result.level;
-                    } else if (i == 1) {
-                        MAC2 = result.BSSID;
-                        RSS2 = result.level;
-                    } else if (i == 2) {
-                        MAC3 = result.BSSID;
-                        RSS3 = result.level;
-                    }
-                    i++;
-                }
-            }
-            break;
         }
     }
 
@@ -381,9 +396,12 @@ public class UserActivity extends AppCompatActivity{
      * @param apList  List with the MAC's Address
      */
     private void updateAP(List<ScanResult> results, List<Ap> apList){
+        for (Ap ap : apList){
+            ap.setRssi(0);
+        }
+
         for (ScanResult result : results) {
             for (Ap ap : apList) {
-                ap.setRssi(0);
                 if (ap.getMac().equals(result.BSSID)){
                     ap.setSsid(result.SSID);
                     ap.setRssi(result.level);
@@ -399,18 +417,11 @@ public class UserActivity extends AppCompatActivity{
      */
     private RequestParams getParams(){
         RequestParams params = new RequestParams();
-
-        params.put(MAC1, Integer.toString(RSS1));
-        params.put(MAC2, Integer.toString(RSS2));
-        params.put(MAC3, Integer.toString(RSS3));
-
-        /*
         for (Ap ap : apList){
             params.put(ap.getMac(),Integer.toString(ap.getRssi()));
         }
-        */
 
-        //Log.d("ParamGET",params.toString());
+        Log.i("ParamGET",params.toString());
         return params;
     }
 
@@ -418,11 +429,12 @@ public class UserActivity extends AppCompatActivity{
      * Function to request the MAC address of the APs
      */
     private void getMacList(){
-        ArrayList<String> listMacs = (setListMAC());
+        ArrayList<String> listMacs = setListMAC();
         for (String mac : listMacs) {
             Ap ap = new Ap(mac);
             apList.add(ap);
         }
+        Log.d("APList",apList.toString());
     }
 
     /**
@@ -434,11 +446,13 @@ public class UserActivity extends AppCompatActivity{
         List<Header> headers = new ArrayList<>();
         headers.add(new BasicHeader("Accept", "application/json"));
 
-        //RestClient.get(this, "api/notes", headers.toArray(new Header[headers.size()]), null
+        //if (isConnected("\""+network+"\"")){
+        Log.d(TAG,"Requesting GET");
         RestClient.get(UserActivity.this, "?", headers.toArray(new Header[headers.size()]), params,
                 new JsonHttpResponseHandler() {
                     @Override
                     public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
+                        Log.i("ResponseJSON",response.toString());
                         LocusJson respJson = new LocusJson(response);
                         location = respJson.getArid();
                         updateUI();
@@ -448,9 +462,13 @@ public class UserActivity extends AppCompatActivity{
                     @Override
                     public void onFailure(int statusCode, Header[] headers, Throwable throwable, JSONObject errorResponse) {
                         super.onFailure(statusCode, headers, throwable, errorResponse);
-                        Log.d("AsyncHttpRH","Failure to send GET");
+                        Log.d("AsyncHttpRH","Failure to send GET" + errorResponse.toString());
                     }
                 });
+        //} else{
+            //autoConnectWPA(network,password);
+            //Log.d(TAG,"Reconectando");
+        //}
     }
 
     /**
@@ -489,14 +507,11 @@ public class UserActivity extends AppCompatActivity{
     private void refresh() {
         wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (!wifiMgr.isWifiEnabled()) wifiMgr.setWifiEnabled(true);
-        wifiMgr.startScan();
+            wifiMgr.startScan();
         List<ScanResult> results= wifiMgr.getScanResults();
-        ArrayList macs = setListMAC();
-        updateAP(results,macs,0);
-        //updateAP(results,apList);
+        updateAP(results,apList);
         getLocation(getParams());
         updateUI();
-        //Log.d("AutoRefresh","Scan Completed");
     }
 
     /**
