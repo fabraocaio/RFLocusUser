@@ -1,7 +1,6 @@
 package project.app.user.org.rflocususer;
 
 import android.Manifest;
-import android.annotation.TargetApi;
 import android.app.Application;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
@@ -10,39 +9,25 @@ import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.nfc.Tag;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Environment;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.NonNull;
-import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
-import android.widget.Button;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import com.android.volley.Request;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.JsonArrayRequest;
 import com.loopj.android.http.JsonHttpResponseHandler;
 import com.loopj.android.http.RequestParams;
-
-import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -51,6 +36,16 @@ import cz.msebera.android.httpclient.Header;
 import cz.msebera.android.httpclient.message.BasicHeader;
 
 public class UserActivity extends AppCompatActivity{
+
+    private enum TypeAuthent {
+        OPEN(0), WPA(1), WPE(2);
+
+        private final int valor;
+
+        TypeAuthent(int valorOption){
+            valor = valorOption;
+        }
+    }
 
     private static String TAG = "UserActivity";
     private static String network = "RFLocus";
@@ -61,9 +56,6 @@ public class UserActivity extends AppCompatActivity{
     private boolean wifiInitStt;
 
     private List<Ap> apList;
-
-    private String MAC1, MAC2, MAC3;
-    private Integer RSS1, RSS2, RSS3;
 
     private String location="Bem vindo ao RFLocus";
 
@@ -86,81 +78,33 @@ public class UserActivity extends AppCompatActivity{
     }
 
     /**
-     * Class that manager the log saving to the device's storage directory
-     */
-    public static class CreateLog extends Application {
-        private static String TAG = "CreateLog";
-
-        /**
-         * Function to save the logcat into files on the device's storage directory
-         */
-        private static void createLog() {
-            if (isExternalStorageWritable()) {
-
-                //DateFormat df = new SimpleDateFormat.getDateTimeInstance("ddmmyy","hhmm");
-                File appDirectory = new File(Environment.getExternalStorageDirectory() + "/rflocusUser");
-                File logDirectory = new File(appDirectory + "/log");
-                File logFile1 = new File(logDirectory, "logcat_default" + System.currentTimeMillis() + ".txt");
-                File logFile2 = new File(logDirectory, "logcat_debug" + System.currentTimeMillis() + ".txt");
-
-                if (!appDirectory.exists()) {
-                    appDirectory.mkdir();
-                    Log.d(TAG,"Creating app directory");
-                }
-
-                if (!logDirectory.exists()) {
-                    logDirectory.mkdir();
-                    Log.d(TAG,"Creating log directory");
-                }
-
-                try {
-                    Process process = Runtime.getRuntime().exec("logcat -c");
-                    process = Runtime.getRuntime().exec("logcat -f " + logFile1 + " *:I");
-                    process = Runtime.getRuntime().exec("logcat -f " + logFile2 + " *:D");
-                    Log.d(TAG,"Log Saved");
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-            } else if (isExternalStorageReadable()) {
-                Log.e(TAG, "External Storage only readable");
-            } else {
-                Log.e(TAG, "External Storage only accessible");
-            }
-        }
-
-        /***
-         * Checks if external storage is available for read and write
-         *
-         * @return boolean
-         */
-        public static boolean isExternalStorageWritable() {
-            String state = Environment.getExternalStorageState();
-            return Environment.MEDIA_MOUNTED.equals(state);
-        }
-
-        /***
-         * Checks if external storage is available to at least read
-         *
-         * @return boolean
-         */
-        public static boolean isExternalStorageReadable() {
-            String state = Environment.getExternalStorageState();
-            return Environment.MEDIA_MOUNTED.equals(state) ||
-                    Environment.MEDIA_MOUNTED_READ_ONLY.equals(state);
-        }
-    }
-
-    /**
-     * Function to automatically connect to a OPEN Wi-Fi network
+     * * Function to automatically connect to a WEP Wi-Fi network
      *
      * @param networkSSID String with the SSID of the desire network
+     * @param networkPass String with the password of the desire network
+     * @param type TypeAuthent with the authentication type
      */
-    private void autoConnectOPEN(String networkSSID) {
+    private void autoConnect(String networkSSID,String networkPass,TypeAuthent type) {
         WifiConfiguration conf = new WifiConfiguration();
         conf.SSID = "\"" + networkSSID + "\"";   // Please note the quotes. String should contain ssid in quotes
-        //For OPEN password
-        conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+        switch (type){
+            case OPEN:
+                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+                break;
+            case WPA:
+                conf.preSharedKey = "\"" + networkPass + "\"";
+                break;
+            case WPE:{
+                conf.wepKeys[0] = "\"" + networkPass + "\"";
+                conf.wepTxKeyIndex = 0;
+                conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+                conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
+                break;
+            }
+            default:
+                Log.e("AutoConnect","Opção inválida");
+                return;
+        }
         //Add setting to WifiManager
         wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         int netID = wifiMgr.addNetwork(conf);
@@ -168,50 +112,6 @@ public class UserActivity extends AppCompatActivity{
         wifiMgr.enableNetwork(netID, true);
         wifiMgr.reconnect();
         Log.d("AutoConnect", "Open");
-    }
-
-    /**
-     * Function to automatically connect to a WPA Wi-Fi network
-     *
-     * @param networkSSID String with the SSID of the desire network
-     * @param networkPass String with the password of the desire network
-     */
-    private void autoConnectWPA(String networkSSID, String networkPass) {
-        WifiConfiguration conf = new WifiConfiguration();
-        conf.SSID = "\"" + networkSSID + "\"";   // Please note the quotes. String should contain ssid in quotes
-        //For WPA password
-        conf.preSharedKey = "\"" + networkPass + "\"";
-        //Add setting to WifiManager
-        wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        wifiMgr.addNetwork(conf);
-        int netID = wifiMgr.addNetwork(conf);
-        wifiMgr.disconnect();
-        wifiMgr.enableNetwork(netID, true);
-        wifiMgr.reconnect();
-        Log.d("AutoConnect", "WPA");
-    }
-
-    /**
-     * Function to automatically connect to a WEP Wi-Fi network
-     *
-     * @param networkSSID String with the SSID of the desire network
-     * @param networkPass String with the password of the desire network
-     */
-    private void autoConnectWEP(String networkSSID, String networkPass) {
-        WifiConfiguration conf = new WifiConfiguration();
-        conf.SSID = "\"" + networkSSID + "\"";   // Please note the quotes. String should contain ssid in quotes
-        //for wep
-        conf.wepKeys[0] = "\"" + networkPass + "\"";
-        conf.wepTxKeyIndex = 0;
-        conf.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-        conf.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
-        //Add setting to WifiManager
-        wifiMgr = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        wifiMgr.addNetwork(conf);
-        int netID = wifiMgr.addNetwork(conf);
-        wifiMgr.disconnect();
-        wifiMgr.enableNetwork(netID, true);
-        wifiMgr.reconnect();
     }
 
     /**
@@ -303,7 +203,7 @@ public class UserActivity extends AppCompatActivity{
         swtTTS = (Switch) findViewById(R.id.swtTTS);
         swtTTS.setChecked(true);
 
-        autoConnectWPA(network,password);
+        autoConnect(network,password,TypeAuthent.WPA);
         apList = new ArrayList<>();
         getMacList();
         startTTS();
@@ -369,10 +269,10 @@ public class UserActivity extends AppCompatActivity{
         if(!(text==null||"".equals(text))){
            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null);
-                //Log.d("TSS","LOLLIPOP");
+                Log.d("TSS","LOLLIPOP or superior");
             } else {
                 tts.speak(text, TextToSpeech.QUEUE_FLUSH, null);
-                //Log.d("TSS","< LOLLIPOP");
+                Log.d("TSS","Less them LOLLIPOP");
             }
         }
     }
@@ -380,7 +280,7 @@ public class UserActivity extends AppCompatActivity{
     /**
      * Function to update the information displayed in the user interface
      */
-    public void updateUI() {
+    private void updateUI() {
         if (!tvLocation.getText().toString().equals(location)) {
             tvLocation.setText(location);
             if (swtTTS.isChecked()) {
@@ -535,5 +435,72 @@ public class UserActivity extends AppCompatActivity{
             return null;
         }
 
+    }
+
+    /**
+     * Class that manager the log saving to the device's storage directory
+     */
+    public static class CreateLog extends Application {
+        private static String TAG = "CreateLog";
+
+        /**
+         * Function to save the logcat into files on the device's storage directory
+         */
+        private static void createLog() {
+            boolean ret;
+            if (isExternalStorageWritable()) {
+
+                //DateFormat df = new SimpleDateFormat.getDateTimeInstance("ddmmyy","hhmm");
+                File appDirectory = new File(Environment.getExternalStorageDirectory() + "/rflocusUser");
+                File logDirectory = new File(appDirectory + "/log");
+                File logFile1 = new File(logDirectory, "logcat_default" + System.currentTimeMillis() + ".txt");
+                File logFile2 = new File(logDirectory, "logcat_debug" + System.currentTimeMillis() + ".txt");
+
+                if (!appDirectory.exists()) {
+                    ret = appDirectory.mkdir();
+                    Log.d(TAG,"APP directory create: "+ret);
+                }
+
+                if (!logDirectory.exists()) {
+                    ret = logDirectory.mkdir();
+                    Log.d(TAG,"Log directory create: "+ret);
+                }
+
+                try {
+                    Runtime.getRuntime().exec("logcat -c");
+                    Runtime.getRuntime().exec("logcat -f " + logFile1 + " *:I");
+                    Runtime.getRuntime().exec("logcat -f " + logFile2 + " *:D");
+                    Log.d(TAG,"Log Saved");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            } else if (isExternalStorageReadable()) {
+                Log.e(TAG, "External Storage only readable");
+            } else {
+                Log.e(TAG, "External Storage only accessible");
+            }
+        }
+
+        /***
+         * Checks if external storage is available for read and write
+         *
+         * @return boolean
+         */
+        public static boolean isExternalStorageWritable() {
+            String state = Environment.getExternalStorageState();
+            return Environment.MEDIA_MOUNTED.equals(state);
+        }
+
+        /***
+         * Checks if external storage is available to at least read
+         *
+         * @return boolean
+         */
+        public static boolean isExternalStorageReadable() {
+            String state = Environment.getExternalStorageState();
+            return Environment.MEDIA_MOUNTED.equals(state) ||
+                    Environment.MEDIA_MOUNTED_READ_ONLY.equals(state);
+        }
     }
 }
